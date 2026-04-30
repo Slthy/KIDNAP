@@ -53,3 +53,14 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+*/in
+*/out
+*/current.txt
+*/seen.txt
+*/trace.txt
+*/mini
+
+AFLplusplus/build/
+AFLplusplus/*.o
+AFLplusplus/.cache/
