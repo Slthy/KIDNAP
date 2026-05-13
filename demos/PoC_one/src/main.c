@@ -2,16 +2,24 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/time.h>
 
 #include "../include/config.h"
 #include "../include/decoder.h"
 #include "../include/executor.h"
 #include "../include/feedback.h"
 
+
+static void install_timeout(void) {
+    struct itimerval timer = {0};
+
+    timer.it_value.tv_usec = 500000;
+    setitimer(ITIMER_REAL, &timer, NULL);
+}
+
 static int run_input(const uint8_t *buf, size_t len) {
 #ifdef SYSCALL_FEEDBACK
     int prev1 = -1;
-    int prev2 = -1;
 #endif
     size_t op_limit = MAX_OPS * OP_SIZE;
     size_t usable = len < op_limit ? len : op_limit;
@@ -22,13 +30,10 @@ static int run_input(const uint8_t *buf, size_t len) {
         long ret = 0;
 
 #ifdef SYSCALL_FEEDBACK
-        int sysno = (int)op_id;
+        int sysno = syscall_number_for_op(op_id);
         feedback_syscall(sysno);
         if (prev1 != -1) {
             feedback_seq2(prev1, sysno);
-        }
-        if (prev2 != -1) {
-            feedback_seq3(prev2, prev1, sysno);
         }
 #endif
 
@@ -43,7 +48,6 @@ static int run_input(const uint8_t *buf, size_t len) {
         (void)ret;
 #endif
 #ifdef SYSCALL_FEEDBACK
-        prev2 = prev1;
         prev1 = sysno;
 #endif
     }
@@ -52,6 +56,7 @@ static int run_input(const uint8_t *buf, size_t len) {
 }
 
 int main(int argc, char **argv) {
+    install_timeout();
     uint8_t buf[MAX_INPUT] = {0};
     const char *input_path = NULL;
     size_t len = 0;
