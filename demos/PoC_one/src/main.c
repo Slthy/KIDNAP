@@ -1,54 +1,71 @@
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <errno.h>
+#include <stdio.h>
 
 #include "../include/config.h"
-#include "../include/ops.h"
+#include "../include/decoder.h"
 #include "../include/executor.h"
 #include "../include/feedback.h"
 
-fuzz_op_t decode(const uint8_t *buf) {
-    fuzz_op_t op;
-
-    op.syscall_id = buf[0];
-    op.arg0       = buf[1];
-    op.arg1       = buf[2];
-    op.arg2       = buf[3];
-
-    return op;
-}
-
-
-int main(int argc, char **argv) {
-    uint8_t buf[MAX_INPUT];
-    size_t len = read_input(argv[1], buf, sizeof(buf));
-
+static int run_input(const uint8_t *buf, size_t len) {
+#ifdef SYSCALL_FEEDBACK
     int prev1 = -1;
     int prev2 = -1;
+#endif
+    size_t op_limit = MAX_OPS * OP_SIZE;
+    size_t usable = len < op_limit ? len : op_limit;
 
-    for (int i = 0; i + 4 <= len && i < MAX_OPS * 4; i += 4) {
-        fuzz_op_t op = decode(buf + i);
-
-        int sysno = select_syscall(op.syscall_id);
+    for (size_t i = 0; i + OP_SIZE <= usable; i += OP_SIZE) {
+        fuzz_op_t op = decode_op(buf + i);
+        syscall_op_t op_id = select_syscall(op.syscall_id);
+        long ret = 0;
 
 #ifdef SYSCALL_FEEDBACK
+        int sysno = (int)op_id;
         feedback_syscall(sysno);
-        if (prev1 != -1)
+        if (prev1 != -1) {
             feedback_seq2(prev1, sysno);
-        if (prev2 != -1)
+        }
+        if (prev2 != -1) {
             feedback_seq3(prev2, prev1, sysno);
+        }
 #endif
 
-        long ret = execute_safe_syscall(sysno, op);
+        errno = 0;
+        ret = execute_safe_syscall(op_id, op);
 
 #ifdef SYSCALL_FEEDBACK
-        if (ret < 0)
+        if (ret < 0) {
             feedback_errno(sysno, errno);
+        }
+#else
+        (void)ret;
 #endif
-
+#ifdef SYSCALL_FEEDBACK
         prev2 = prev1;
         prev1 = sysno;
+#endif
     }
 
     return 0;
+}
+
+int main(int argc, char **argv) {
+    uint8_t buf[MAX_INPUT] = {0};
+    const char *input_path = NULL;
+    size_t len = 0;
+
+    if (argc > 2) {
+        fprintf(stderr, "usage: %s [input-file]\n", argv[0]);
+        return 2;
+    }
+
+    input_path = argc == 2 ? argv[1] : NULL;
+    len = read_input(input_path, buf, sizeof(buf));
+    if (len == 0) {
+        return 0;
+    }
+
+    return run_input(buf, len);
 }
