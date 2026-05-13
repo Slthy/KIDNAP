@@ -24,4 +24,4 @@ else
     make -C "$ROOT_DIR"
 fi
 
-exec "$AFL_FUZZ_BIN" -i "$IN_DIR" -o "$OUT_DIR" -t 1000 -- "$TARGET" @@
+run_afl_fuzz "$AFL_FUZZ_BIN" -i "$IN_DIR" -o "$OUT_DIR" -t 1000 -- "$TARGET" @@

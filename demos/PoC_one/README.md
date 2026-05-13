@@ -61,11 +61,19 @@ AFL's coverage map in addition to normal compiler-inserted edge coverage:
 
 Install AFL++ and ensure `afl-fuzz` is on `PATH`. The helper scripts also
 recognize common AFL++ binary names such as `afl-fuzz++`; if the fuzzer lives
-elsewhere, set `AFL_FUZZ=/path/to/afl-fuzz`. If an AFL compiler wrapper such as
+elsewhere, set `AFL_FUZZ=/path/to/afl-fuzz`. The scripts consume this helper
+variable and unset it before launching AFL++ so AFL++ does not report it as a
+mistyped `AFL_*` environment variable. If an AFL compiler wrapper such as
 `afl-cc`, `afl-clang-fast`, or `afl-clang-lto` is present, the helper scripts
 use it automatically; otherwise they build with the default compiler and print a
 warning. Set `AFL_CC=/path/to/compiler-wrapper` to choose a specific AFL
 compiler wrapper.
+
+On Linux hosts where `/proc/sys/kernel/core_pattern` pipes crashes to an
+external handler, AFL++ may abort before fuzzing starts. For these demo runs the
+helper scripts automatically set `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1` in
+that situation and print a warning. For precise crash triage, prefer changing
+the host setting temporarily with `echo core | sudo tee /proc/sys/kernel/core_pattern`.
 
 Run the baseline target:
 
