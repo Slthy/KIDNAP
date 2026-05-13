@@ -59,9 +59,13 @@ AFL's coverage map in addition to normal compiler-inserted edge coverage:
 
 ## Fuzzing with AFL++
 
-Install AFL++ and ensure `afl-fuzz` is on `PATH`. If `afl-cc` is also present,
-the helper scripts use it automatically; otherwise they build with the default
-compiler and print a warning.
+Install AFL++ and ensure `afl-fuzz` is on `PATH`. The helper scripts also
+recognize common AFL++ binary names such as `afl-fuzz++`; if the fuzzer lives
+elsewhere, set `AFL_FUZZ=/path/to/afl-fuzz`. If an AFL compiler wrapper such as
+`afl-cc`, `afl-clang-fast`, or `afl-clang-lto` is present, the helper scripts
+use it automatically; otherwise they build with the default compiler and print a
+warning. Set `AFL_CC=/path/to/compiler-wrapper` to choose a specific AFL
+compiler wrapper.
 
 Run the baseline target:
 
