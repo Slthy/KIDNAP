@@ -56,6 +56,8 @@ AFL's coverage map in addition to normal compiler-inserted edge coverage:
 - `SYSCALL(syscall_nr)` for each syscall class reached.
 - `ERRNO(syscall_nr, errno)` for each failing syscall result.
 - `SEQ2(previous_syscall_nr, syscall_nr)` for short syscall-order feedback.
+- `SEQ3(older_syscall_nr, previous_syscall_nr, syscall_nr)` for a harder
+  syscall-order signal that is less likely to saturate during short campaigns.
 
 ## Fuzzing with AFL++
 
@@ -132,8 +134,10 @@ Useful variants:
 ## Queue analysis
 
 `analyze_queue.py` decodes AFL queue entries or standalone testcase files and
-reports the syscall classes and two-syscall transitions represented by the
-corpus.
+reports syscall classes, two-syscall transitions, three-syscall transitions, and
+replay-derived errno combinations represented by the corpus. The errno metrics
+require `--target`; the helper enables `KIDNAP_TRACE_SYSCALLS=1` while replaying
+so the target emits one compact trace line per executed operation.
 
 Analyze a single testcase:
 
@@ -164,8 +168,10 @@ Write machine-readable outputs:
 
 ## Plotting feedback growth
 
-`plot_feedback.py` derives cumulative syscall and `SEQ2` growth from AFL queue
-files. It can compare multiple output directories. For AFL++ default
+`plot_feedback.py` derives cumulative syscall, `SEQ2`, and `SEQ3` growth from
+AFL queue files and reports when each metric first reaches its final value for
+that corpus as a time-to-saturation proxy. It can compare multiple output
+directories. For AFL++ default
 single-instance runs, pass the instance directories (`out-baseline/default` and
 `out-sysfeedback/default`) because AFL++ stores queue files under
 `out-dir/default/queue/`, not directly under `out-dir/queue/`.
