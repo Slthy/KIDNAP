@@ -65,4 +65,6 @@ AFLplusplus/build/
 AFLplusplus/*.o
 AFLplusplus/.cache/
 
-*/.venv
+.venv/
+**/.venv/
+__pycache__
