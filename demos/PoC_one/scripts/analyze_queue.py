@@ -60,7 +60,14 @@ class CaseSummary:
 
 
 def afl_queue_files(paths: Sequence[Path]) -> Iterator[Path]:
-    """Yield AFL queue files and direct testcase files from the provided paths."""
+    """Yield AFL queue files and direct testcase files from the provided paths.
+
+    AFL++ places queue entries below an instance directory. For a default
+    single-instance run, that means ``out-dir/default/queue`` rather than
+    ``out-dir/queue``. Accept the AFL output root, the instance directory, the
+    queue directory, or individual testcase files so analysis commands keep
+    working across these common layouts.
+    """
     for root in paths:
         if root.is_file():
             yield root
@@ -70,7 +77,14 @@ def afl_queue_files(paths: Sequence[Path]) -> Iterator[Path]:
             raise FileNotFoundError(root)
 
         queue = root / "queue"
-        search_root = queue if queue.is_dir() else root
+        default_queue = root / "default" / "queue"
+        if queue.is_dir():
+            search_root = queue
+        elif default_queue.is_dir():
+            search_root = default_queue
+        else:
+            search_root = root
+
         for item in sorted(search_root.iterdir()):
             if item.is_file() and not item.name.startswith("."):
                 yield item
