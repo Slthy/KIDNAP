@@ -32,12 +32,14 @@ void update_sequence(feedback_t *fb, int syscall_nr) {
 #ifdef SYSCALL_FEEDBACK
 /*
  * AFL++ exposes this pointer from its runtime when the target is built with an
- * AFL compiler wrapper. Keep the declaration weak so non-AFL smoke builds still
- * link and fall back to a private map below. Do not force an asm symbol name
- * here: LLVM PCGUARD can clone/suffix forced symbol references (for example,
- * __afl_area_ptr.4), which then fails at link time with AFL++ 4.41a.
+ * AFL compiler wrapper. Only declare it for AFL builds: a weak declaration in
+ * this translation unit can interfere with LLVM PCGUARD's runtime reference and
+ * produce suffixed unresolved symbols such as __afl_area_ptr.4 at link time.
+ * Non-AFL smoke builds use the private fallback map below instead.
  */
-extern unsigned char *__afl_area_ptr __attribute__((weak));
+#ifdef __AFL_COMPILER
+extern unsigned char *__afl_area_ptr;
+#endif
 
 static feedback_t global_feedback;
 static volatile uint8_t fallback_feedback_map[AFL_MAP_SIZE];
@@ -84,10 +86,12 @@ static uint32_t feature_hash3(const char *tag, int first, int second, int third)
 static void record_feature(uint32_t feature_hash) {
     uint32_t idx = feature_hash % AFL_MAP_SIZE;
 
-    if (&__afl_area_ptr != NULL && __afl_area_ptr != NULL) {
+#ifdef __AFL_COMPILER
+    if (__afl_area_ptr != NULL) {
         __afl_area_ptr[idx]++;
         return;
     }
+#endif
 
     fallback_feedback_map[idx]++;
 }
