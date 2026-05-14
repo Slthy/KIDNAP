@@ -30,7 +30,7 @@ void update_sequence(feedback_t *fb, int syscall_nr) {
 }
 
 #ifdef SYSCALL_FEEDBACK
-extern unsigned char *__afl_area_ptr __attribute__((weak));
+extern unsigned char *__afl_area_ptr __asm__("__afl_area_ptr") __attribute__((weak));
 
 static feedback_t global_feedback;
 static volatile uint8_t fallback_feedback_map[AFL_MAP_SIZE];

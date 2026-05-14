@@ -56,6 +56,13 @@ resolve_afl_cc() {
 
     return 1
 }
+run_make() {
+    # AFL++ treats AFL_FUZZ as an unknown AFL_* variable. This repository uses
+    # it only as a helper-script override for locating the fuzzer binary, so do
+    # not forward it to compiler wrappers while building either.
+    env -u AFL_FUZZ make "$@"
+}
+
 prepare_afl_runtime_env() {
     # AFL++ treats AFL_FUZZ as an unknown AFL_* variable. This repository uses
     # it only as a helper-script override for locating the fuzzer binary, so do
