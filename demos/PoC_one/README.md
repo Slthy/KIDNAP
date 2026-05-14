@@ -105,6 +105,30 @@ window unless those variables are already set, writes outputs under
 `runs/base_*` and `runs/fb_*`, and writes logs under `runs/logs/`. Stop all runs
 with `tmux kill-session -t kidnap-poc-one`.
 
+## Resetting experiments
+
+Use `reset_experiments.sh` after stopping a fuzzing run, or when you want to
+throw away generated AFL queues and restart from scratch:
+
+```sh
+./scripts/reset_experiments.sh
+```
+
+By default the reset helper kills the `kidnap-poc-one` tmux session if it is
+running, terminates direct `afl-fuzz` processes whose command line references
+this demo directory, and removes generated output directories:
+`./out-baseline`, `./out-sysfeedback`, and `./runs`. It preserves the seed input
+folder `./in`; pass `--delete-input` if you also want to recreate seeds on the
+next run.
+
+Useful variants:
+
+```sh
+./scripts/reset_experiments.sh --dry-run
+./scripts/reset_experiments.sh --stop-only
+./scripts/reset_experiments.sh --clean-only ./custom-afl-out
+```
+
 ## Queue analysis
 
 `analyze_queue.py` decodes AFL queue entries or standalone testcase files and

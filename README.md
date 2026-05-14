@@ -19,4 +19,5 @@ printf '\x00\x00\x00\x00' > /tmp/poc_one.seed
 ./scripts/analyze_queue.py /tmp/poc_one.seed
 ```
 
-See the PoC README for AFL++ fuzzing commands and plotting examples.
+See the PoC README for AFL++ fuzzing commands, experiment reset helpers, and
+plotting examples.

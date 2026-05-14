@@ -152,6 +152,7 @@ cat <<MSG
 [+] Started tmux session: $SESSION
 [+] Attach: tmux attach -t $SESSION
 [+] Stop all fuzzers: tmux kill-session -t $SESSION
+[+] Stop and reset outputs: ./scripts/reset_experiments.sh --session $SESSION --runs '$RUNS_DIR'
 [+] Outputs: $RUNS_DIR/base_* and $RUNS_DIR/fb_*
 [+] Logs: $RUNS_DIR/logs/*.log
 MSG
