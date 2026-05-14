@@ -54,14 +54,22 @@ def label_for_path(path: Path) -> str:
 
 
 def series_for_path(path: Path) -> list[dict[str, object]]:
+    unsorted_files = list(afl_queue_files([path]))
+    start_time = min(
+        (file_path.stat().st_mtime for file_path in unsorted_files), default=0.0
+    )
     files = sorted(
-        afl_queue_files([path]), key=lambda item: (item.stat().st_mtime, item.name)
+        unsorted_files,
+        key=lambda item: (
+            queue_entry_seconds(item, start_time),
+            item.stat().st_mtime,
+            item.name,
+        ),
     )
     seen_syscalls: set[str] = set()
     seen_seq2: set[str] = set()
     seen_seq3: set[str] = set()
     rows: list[dict[str, object]] = []
-    start_time = files[0].stat().st_mtime if files else 0.0
     label = label_for_path(path)
 
     for index, file_path in enumerate(files, start=1):
@@ -86,6 +94,46 @@ def series_for_path(path: Path) -> list[dict[str, object]]:
             }
         )
     return rows
+
+
+def metric_change_points(
+    rows: Sequence[dict[str, object]], metric: str
+) -> tuple[list[float], list[int]]:
+    """Return chronological points where ``metric`` changes, plus the final point.
+
+    AFL queues can contain hundreds or thousands of entries. Plotting every
+    cumulative row with markers makes dense PNGs hard to read, especially when
+    multiple entries share the same timestamp. Keeping only the points that
+    change a metric preserves the growth curve while avoiding marker clutter and
+    backtracking line segments.
+    """
+    x_values: list[float] = []
+    y_values: list[int] = []
+    previous_value: int | None = None
+
+    for row in rows:
+        current_value = int(row[metric])
+        if previous_value is None or current_value != previous_value:
+            x_values.append(float(row["seconds"]))
+            y_values.append(current_value)
+            previous_value = current_value
+
+    if rows:
+        final_x = float(rows[-1]["seconds"])
+        final_y = int(rows[-1][metric])
+        if not x_values or x_values[-1] != final_x or y_values[-1] != final_y:
+            x_values.append(final_x)
+            y_values.append(final_y)
+
+    return x_values, y_values
+
+
+def plot_metric(
+    axis, rows: Sequence[dict[str, object]], metric: str, label: str
+) -> None:
+    x_values, y_values = metric_change_points(rows, metric)
+    (line,) = axis.step(x_values, y_values, where="post", linewidth=1.8, label=label)
+    axis.scatter(x_values[-1:], y_values[-1:], s=18, color=line.get_color(), zorder=3)
 
 
 def write_csv(path: Path, rows: Sequence[dict[str, object]]) -> None:
@@ -124,36 +172,22 @@ def render_plot(path: Path, rows_by_input: dict[Path, list[dict[str, object]]]) 
         raise RuntimeError("matplotlib is required for plotting; rerun with --csv") from exc
 
     fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
-    for input_path, rows in rows_by_input.items():
+    for rows in rows_by_input.values():
         if not rows:
             continue
-        x_values = [float(row["seconds"]) for row in rows]
-        axes[0].plot(
-            x_values,
-            [int(row["unique_syscalls"]) for row in rows],
-            marker="o",
-            label=str(rows[0]["label"]),
-        )
-        axes[1].plot(
-            x_values,
-            [int(row["unique_seq2"]) for row in rows],
-            marker="o",
-            label=str(rows[0]["label"]),
-        )
-        axes[2].plot(
-            x_values,
-            [int(row["unique_seq3"]) for row in rows],
-            marker="o",
-            label=str(rows[0]["label"]),
-        )
+        label = str(rows[0]["label"])
+        plot_metric(axes[0], rows, "unique_syscalls", label)
+        plot_metric(axes[1], rows, "unique_seq2", label)
+        plot_metric(axes[2], rows, "unique_seq3", label)
 
     axes[0].set_ylabel("unique syscalls")
     axes[1].set_ylabel("unique seq2 transitions")
     axes[2].set_ylabel("unique seq3 transitions")
     axes[2].set_xlabel("seconds since fuzzing start (mtime-relative for non-AFL files)")
     for axis in axes:
-        axis.grid(True, alpha=0.3)
-        axis.legend(loc="best")
+        axis.grid(True, alpha=0.25)
+        axis.margins(x=0.02, y=0.08)
+        axis.legend(loc="best", framealpha=0.9)
     fig.tight_layout()
     fig.savefig(path)
 
