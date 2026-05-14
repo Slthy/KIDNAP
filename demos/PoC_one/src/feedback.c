@@ -31,14 +31,15 @@ void update_sequence(feedback_t *fb, int syscall_nr) {
 
 #ifdef SYSCALL_FEEDBACK
 /*
- * AFL++ exposes this pointer from its runtime when the target is built with an
- * AFL compiler wrapper. Only declare it for AFL builds: a weak declaration in
- * this translation unit can interfere with LLVM PCGUARD's runtime reference and
- * produce suffixed unresolved symbols such as __afl_area_ptr.4 at link time.
- * Non-AFL smoke builds use the private fallback map below instead.
+ * Do not declare or touch AFL++'s __afl_area_ptr directly here. In LLVM
+ * PCGUARD mode, declaring that symbol before AFL++'s instrumentation pass runs
+ * can make the pass auto-rename its own runtime reference to a suffixed symbol
+ * such as __afl_area_ptr.4, which then fails to link. Use AFL++'s public
+ * __afl_coverage_interesting hook for compiler-wrapper builds and keep the
+ * private fallback map for non-AFL smoke builds.
  */
 #ifdef __AFL_COMPILER
-extern unsigned char *__afl_area_ptr;
+extern void __afl_coverage_interesting(uint8_t val, uint32_t id);
 #endif
 
 static feedback_t global_feedback;
@@ -83,17 +84,21 @@ static uint32_t feature_hash3(const char *tag, int first, int second, int third)
     return mix_u32(hash, (uint32_t)third);
 }
 
-static void record_feature(uint32_t feature_hash) {
-    uint32_t idx = feature_hash % AFL_MAP_SIZE;
-
 #ifdef __AFL_COMPILER
-    if (__afl_area_ptr != NULL) {
-        __afl_area_ptr[idx]++;
-        return;
-    }
+static uint8_t interesting_value(uint32_t feature_hash) {
+    return (uint8_t)(1u << (feature_hash & 7u));
+}
 #endif
 
+static void record_feature(uint32_t feature_hash) {
+#ifdef __AFL_COMPILER
+    __afl_coverage_interesting(interesting_value(feature_hash), 0);
+    return;
+#else
+    uint32_t idx = feature_hash % AFL_MAP_SIZE;
+
     fallback_feedback_map[idx]++;
+#endif
 }
 
 void feedback_syscall(int syscall_nr) {
