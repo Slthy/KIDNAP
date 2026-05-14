@@ -30,7 +30,14 @@ void update_sequence(feedback_t *fb, int syscall_nr) {
 }
 
 #ifdef SYSCALL_FEEDBACK
-extern unsigned char *__afl_area_ptr __asm__("__afl_area_ptr") __attribute__((weak));
+/*
+ * AFL++ exposes this pointer from its runtime when the target is built with an
+ * AFL compiler wrapper. Keep the declaration weak so non-AFL smoke builds still
+ * link and fall back to a private map below. Do not force an asm symbol name
+ * here: LLVM PCGUARD can clone/suffix forced symbol references (for example,
+ * __afl_area_ptr.4), which then fails at link time with AFL++ 4.41a.
+ */
+extern unsigned char *__afl_area_ptr __attribute__((weak));
 
 static feedback_t global_feedback;
 static volatile uint8_t fallback_feedback_map[AFL_MAP_SIZE];

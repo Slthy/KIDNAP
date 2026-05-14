@@ -91,6 +91,20 @@ If `seed_dir` is omitted, the scripts create `./in/seed`. If `out_dir` is
 omitted, baseline results go to `./out-baseline` and syscall-feedback results go
 to `./out-sysfeedback`.
 
+For larger machines, start multiple independent campaigns in `tmux` after one
+serial build of stable baseline and syscall-feedback target copies:
+
+```sh
+./scripts/run_tmux_campaigns.sh -i ./in -o ./runs -b 10 -f 10 -s kidnap-poc-one
+tmux attach -t kidnap-poc-one
+```
+
+The tmux helper defaults to 10 baseline plus 10 syscall-feedback campaigns, sets
+`AFL_SKIP_CPUFREQ=1` and `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1` for each
+window unless those variables are already set, writes outputs under
+`runs/base_*` and `runs/fb_*`, and writes logs under `runs/logs/`. Stop all runs
+with `tmux kill-session -t kidnap-poc-one`.
+
 ## Queue analysis
 
 `analyze_queue.py` decodes AFL queue entries or standalone testcase files and

@@ -15,7 +15,7 @@ if ! find "$IN_DIR" -maxdepth 1 -type f -print -quit | grep -q .; then
     printf '\x00\x00\x00\x00' > "$IN_DIR/seed"
 fi
 
-if AFL_CC_BIN="$(resolve_afl_cc)"; then
+if AFL_CC_BIN="$(resolve_afl_cc "$AFL_FUZZ_BIN")"; then
     run_make -C "$ROOT_DIR" clean
     run_make -C "$ROOT_DIR" CC="$AFL_CC_BIN"
 else
