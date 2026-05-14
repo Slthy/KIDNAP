@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/time.h>
 
 #include "../include/config.h"
@@ -17,9 +18,17 @@ static void install_timeout(void) {
     setitimer(ITIMER_REAL, &timer, NULL);
 }
 
+static int trace_enabled(void) {
+    const char *value = getenv("KIDNAP_TRACE_SYSCALLS");
+
+    return value != NULL && value[0] != '\0' && value[0] != '0';
+}
+
 static int run_input(const uint8_t *buf, size_t len) {
+    int trace = trace_enabled();
 #ifdef SYSCALL_FEEDBACK
     int prev1 = -1;
+    int prev2 = -1;
 #endif
     size_t op_limit = MAX_OPS * OP_SIZE;
     size_t usable = len < op_limit ? len : op_limit;
@@ -28,26 +37,33 @@ static int run_input(const uint8_t *buf, size_t len) {
         fuzz_op_t op = decode_op(buf + i);
         syscall_op_t op_id = select_syscall(op.syscall_id);
         long ret = 0;
+        int err = 0;
+        int sysno = syscall_number_for_op(op_id);
 
 #ifdef SYSCALL_FEEDBACK
-        int sysno = syscall_number_for_op(op_id);
         feedback_syscall(sysno);
         if (prev1 != -1) {
             feedback_seq2(prev1, sysno);
+        }
+        if (prev2 != -1) {
+            feedback_seq3(prev2, prev1, sysno);
         }
 #endif
 
         errno = 0;
         ret = execute_safe_syscall(op_id, op);
+        err = ret < 0 ? errno : 0;
 
 #ifdef SYSCALL_FEEDBACK
         if (ret < 0) {
-            feedback_errno(sysno, errno);
+            feedback_errno(sysno, err);
         }
-#else
-        (void)ret;
 #endif
+        if (trace) {
+            fprintf(stderr, "%zu,%d,%ld,%d\n", i / OP_SIZE, sysno, ret, err);
+        }
 #ifdef SYSCALL_FEEDBACK
+        prev2 = prev1;
         prev1 = sysno;
 #endif
     }
