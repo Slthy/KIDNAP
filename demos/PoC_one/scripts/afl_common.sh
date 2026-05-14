@@ -33,6 +33,8 @@ MSG
 }
 
 resolve_afl_cc() {
+    local afl_fuzz_bin="${1:-}"
+
     if [[ -n "${AFL_CC:-}" ]]; then
         if command -v "$AFL_CC" >/dev/null 2>&1; then
             command -v "$AFL_CC"
@@ -47,6 +49,17 @@ resolve_afl_cc() {
     fi
 
     local candidate
+    if [[ -n "$afl_fuzz_bin" ]]; then
+        local afl_bin_dir
+        afl_bin_dir="$(cd "$(dirname "$afl_fuzz_bin")" && pwd)"
+        for candidate in afl-cc afl-clang-fast afl-clang-lto afl-gcc-fast; do
+            if [[ -x "$afl_bin_dir/$candidate" ]]; then
+                printf '%s\n' "$afl_bin_dir/$candidate"
+                return 0
+            fi
+        done
+    fi
+
     for candidate in afl-cc afl-clang-fast afl-clang-lto afl-gcc-fast; do
         if command -v "$candidate" >/dev/null 2>&1; then
             command -v "$candidate"
