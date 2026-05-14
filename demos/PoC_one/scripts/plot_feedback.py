@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -19,6 +20,28 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from analyze_queue import afl_queue_files, decode_bytes  # noqa: E402
+
+AFL_TIME_RE = re.compile(r"(?:^|,)time:(?P<msec>\d+)(?:,|$)")
+
+
+def afl_filename_seconds(path: Path) -> float | None:
+    """Return AFL's queue timestamp in seconds, if present in the filename.
+
+    AFL++ queue names encode ``time:<milliseconds-since-fuzz-start>``. Using
+    that value keeps copied/archived queue directories from inheriting bogus
+    wall-clock deltas from filesystem mtimes.
+    """
+    match = AFL_TIME_RE.search(path.name)
+    if match is None:
+        return None
+    return int(match.group("msec")) / 1000.0
+
+
+def queue_entry_seconds(path: Path, mtime_start: float) -> float:
+    afl_seconds = afl_filename_seconds(path)
+    if afl_seconds is not None:
+        return afl_seconds
+    return path.stat().st_mtime - mtime_start
 
 
 def label_for_path(path: Path) -> str:
@@ -55,7 +78,7 @@ def series_for_path(path: Path) -> list[dict[str, object]]:
             {
                 "label": label,
                 "file_index": index,
-                "seconds": file_path.stat().st_mtime - start_time,
+                "seconds": queue_entry_seconds(file_path, start_time),
                 "queued_files": index,
                 "unique_syscalls": len(seen_syscalls),
                 "unique_seq2": len(seen_seq2),
@@ -109,25 +132,25 @@ def render_plot(path: Path, rows_by_input: dict[Path, list[dict[str, object]]]) 
             x_values,
             [int(row["unique_syscalls"]) for row in rows],
             marker="o",
-            label=input_path.name,
+            label=str(rows[0]["label"]),
         )
         axes[1].plot(
             x_values,
             [int(row["unique_seq2"]) for row in rows],
             marker="o",
-            label=input_path.name,
+            label=str(rows[0]["label"]),
         )
         axes[2].plot(
             x_values,
             [int(row["unique_seq3"]) for row in rows],
             marker="o",
-            label=input_path.name,
+            label=str(rows[0]["label"]),
         )
 
     axes[0].set_ylabel("unique syscalls")
     axes[1].set_ylabel("unique seq2 transitions")
     axes[2].set_ylabel("unique seq3 transitions")
-    axes[2].set_xlabel("seconds since first queue entry")
+    axes[2].set_xlabel("seconds since fuzzing start (mtime-relative for non-AFL files)")
     for axis in axes:
         axis.grid(True, alpha=0.3)
         axis.legend(loc="best")
