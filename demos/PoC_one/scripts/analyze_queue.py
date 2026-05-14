@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import subprocess
 import sys
 from collections import Counter
@@ -55,6 +56,9 @@ class CaseSummary:
     trailing_bytes: int
     syscalls: dict[str, int]
     seq2: dict[str, int]
+    seq3: dict[str, int]
+    syscall_errno: dict[str, int]
+    prev_syscall_errno: dict[str, int]
     exit_code: int | None = None
     timed_out: bool | None = None
 
@@ -102,6 +106,34 @@ def decode_bytes(data: bytes, max_ops: int = MAX_OPS) -> list[Operation]:
     return operations
 
 
+def parse_trace(
+    stderr: str, ops: Sequence[Operation]
+) -> tuple[Counter[str], Counter[str]]:
+    """Return errno-derived counters from KIDNAP_TRACE_SYSCALLS output."""
+    syscall_errno: Counter[str] = Counter()
+    prev_syscall_errno: Counter[str] = Counter()
+
+    for raw_line in stderr.splitlines():
+        fields = raw_line.strip().split(",")
+        if len(fields) != 4:
+            continue
+        try:
+            index = int(fields[0])
+            err = int(fields[3])
+        except ValueError:
+            continue
+        if err == 0 or index < 0 or index >= len(ops):
+            continue
+
+        syscall = ops[index].syscall
+        syscall_errno[f"{syscall}:errno={err}"] += 1
+        if index > 0:
+            previous = ops[index - 1].syscall
+            prev_syscall_errno[f"{previous}->{syscall}:errno={err}"] += 1
+
+    return syscall_errno, prev_syscall_errno
+
+
 def summarize_case(path: Path, target: Path | None, timeout: float) -> CaseSummary:
     data = path.read_bytes()
     ops = decode_bytes(data)
@@ -109,6 +141,12 @@ def summarize_case(path: Path, target: Path | None, timeout: float) -> CaseSumma
     seq_counts = Counter(
         f"{first.syscall}->{second.syscall}" for first, second in zip(ops, ops[1:])
     )
+    seq3_counts = Counter(
+        f"{first.syscall}->{second.syscall}->{third.syscall}"
+        for first, second, third in zip(ops, ops[1:], ops[2:])
+    )
+    syscall_errno_counts: Counter[str] = Counter()
+    prev_syscall_errno_counts: Counter[str] = Counter()
 
     summary = CaseSummary(
         path=str(path),
@@ -117,17 +155,27 @@ def summarize_case(path: Path, target: Path | None, timeout: float) -> CaseSumma
         trailing_bytes=min(len(data), MAX_OPS * OP_SIZE) % OP_SIZE,
         syscalls=dict(sorted(syscall_counts.items())),
         seq2=dict(sorted(seq_counts.items())),
+        seq3=dict(sorted(seq3_counts.items())),
+        syscall_errno={},
+        prev_syscall_errno={},
     )
 
     if target is not None:
         try:
+            env = dict(os.environ)
+            env["KIDNAP_TRACE_SYSCALLS"] = "1"
             result = subprocess.run(
                 [str(target), str(path)],
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
                 timeout=timeout,
                 check=False,
+            )
+            syscall_errno_counts, prev_syscall_errno_counts = parse_trace(
+                result.stderr, ops
             )
             summary.exit_code = result.returncode
             summary.timed_out = False
@@ -135,6 +183,8 @@ def summarize_case(path: Path, target: Path | None, timeout: float) -> CaseSumma
             summary.exit_code = None
             summary.timed_out = True
 
+    summary.syscall_errno = dict(sorted(syscall_errno_counts.items()))
+    summary.prev_syscall_errno = dict(sorted(prev_syscall_errno_counts.items()))
     return summary
 
 
@@ -142,9 +192,15 @@ def aggregate(summaries: Iterable[CaseSummary]) -> dict[str, object]:
     summaries = list(summaries)
     syscall_totals: Counter[str] = Counter()
     seq_totals: Counter[str] = Counter()
+    seq3_totals: Counter[str] = Counter()
+    syscall_errno_totals: Counter[str] = Counter()
+    prev_syscall_errno_totals: Counter[str] = Counter()
     for summary in summaries:
         syscall_totals.update(summary.syscalls)
         seq_totals.update(summary.seq2)
+        seq3_totals.update(summary.seq3)
+        syscall_errno_totals.update(summary.syscall_errno)
+        prev_syscall_errno_totals.update(summary.prev_syscall_errno)
 
     replayed = [
         summary
@@ -157,8 +213,14 @@ def aggregate(summaries: Iterable[CaseSummary]) -> dict[str, object]:
         "total_operations": sum(summary.op_count for summary in summaries),
         "unique_syscalls": len(syscall_totals),
         "unique_seq2": len(seq_totals),
+        "unique_seq3": len(seq3_totals),
+        "unique_syscall_errno": len(syscall_errno_totals),
+        "unique_prev_syscall_errno": len(prev_syscall_errno_totals),
         "syscalls": dict(sorted(syscall_totals.items())),
         "seq2": dict(sorted(seq_totals.items())),
+        "seq3": dict(sorted(seq3_totals.items())),
+        "syscall_errno": dict(sorted(syscall_errno_totals.items())),
+        "prev_syscall_errno": dict(sorted(prev_syscall_errno_totals.items())),
         "replay": {
             "files": len(replayed),
             "timeouts": sum(1 for summary in replayed if summary.timed_out),
@@ -182,6 +244,9 @@ def write_csv(path: Path, summaries: Sequence[CaseSummary]) -> None:
                 "trailing_bytes",
                 "unique_syscalls",
                 "unique_seq2",
+                "unique_seq3",
+                "unique_syscall_errno",
+                "unique_prev_syscall_errno",
                 "exit_code",
                 "timed_out",
             ],
@@ -196,6 +261,9 @@ def write_csv(path: Path, summaries: Sequence[CaseSummary]) -> None:
                     "trailing_bytes": summary.trailing_bytes,
                     "unique_syscalls": len(summary.syscalls),
                     "unique_seq2": len(summary.seq2),
+                    "unique_seq3": len(summary.seq3),
+                    "unique_syscall_errno": len(summary.syscall_errno),
+                    "unique_prev_syscall_errno": len(summary.prev_syscall_errno),
                     "exit_code": "" if summary.exit_code is None else summary.exit_code,
                     "timed_out": "" if summary.timed_out is None else summary.timed_out,
                 }
@@ -271,6 +339,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"  total operations: {report['total_operations']}")
     print(f"  unique syscalls:  {report['unique_syscalls']} / {len(SYSCALLS)}")
     print(f"  unique seq2:      {report['unique_seq2']}")
+    print(f"  unique seq3:      {report['unique_seq3']}")
+    print(f"  syscall+errno:    {report['unique_syscall_errno']}")
+    print(f"  prev+sys+errno:   {report['unique_prev_syscall_errno']}")
     replay = report["replay"]
     assert isinstance(replay, dict)
     if replay["files"]:
@@ -283,6 +354,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     assert isinstance(syscalls, dict)
     for name, count in syscalls.items():
         print(f"  {name:12s} {count}")
+    if report["syscall_errno"]:
+        print("\nSyscall+errno totals:")
+        syscall_errno = report["syscall_errno"]
+        assert isinstance(syscall_errno, dict)
+        for name, count in syscall_errno.items():
+            print(f"  {name:24s} {count}")
     return 0
 
 

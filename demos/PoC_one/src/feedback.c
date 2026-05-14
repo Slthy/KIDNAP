@@ -124,5 +124,6 @@ void feedback_seq3(int first, int second, int third) {
     uint32_t hash = feature_hash3("SEQ3", first, second, third);
 
     global_feedback.seq_hash ^= (uint64_t)(hash % MAX_SEQ);
+    record_feature(hash);
 }
 #endif
