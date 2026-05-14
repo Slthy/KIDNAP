@@ -22,8 +22,10 @@ trailing operations are ignored.
 
 The exerciser intentionally keeps side effects small and local:
 
-- The syscall allowlist is `openat`, `read`, `write`, `close`, `fstat`, `mmap`,
-  `mprotect`, `socket`, `bind`, `setsockopt`, `getpid`, and `uname`.
+- The syscall allowlist covers 46 bounded Linux operations, including file,
+  memory, socket, descriptor, random/time, process-identity, and metadata
+  syscalls such as `openat`, `read`, `write`, `fstat`, `statx`, `mmap`,
+  `socket`, `sendto`, `pipe2`, `dup3`, `getrandom`, and `clock_gettime`.
 - File operations are constrained to `/tmp/afl-syscall-poc/`.
 - Read and write lengths are capped by `MAX_RW_SIZE` (4096 bytes).
 - Opened file descriptors, sockets, and anonymous mappings are closed or
@@ -170,8 +172,10 @@ Write machine-readable outputs:
 
 `plot_feedback.py` derives cumulative syscall, `SEQ2`, and `SEQ3` growth from
 AFL queue files and reports when each metric first reaches its final value for
-that corpus as a time-to-saturation proxy. It can compare multiple output
-directories. For AFL++ default
+that corpus as a time-to-saturation proxy. AFL queue filename `time:` fields
+are interpreted as milliseconds and converted to seconds for the CSV and PNG;
+non-AFL testcase files fall back to mtime-relative seconds. It can compare
+multiple output directories. For AFL++ default
 single-instance runs, pass the instance directories (`out-baseline/default` and
 `out-sysfeedback/default`) because AFL++ stores queue files under
 `out-dir/default/queue/`, not directly under `out-dir/queue/`.
