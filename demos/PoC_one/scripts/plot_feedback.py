@@ -21,6 +21,15 @@ if str(SCRIPT_DIR) not in sys.path:
 from analyze_queue import afl_queue_files, decode_bytes  # noqa: E402
 
 
+def label_for_path(path: Path) -> str:
+    """Return a stable label for AFL output, instance, or queue paths."""
+    if path.name == "queue" and path.parent.name:
+        return f"{path.parent.parent.name}/{path.parent.name}"
+    if path.name == "default" and path.parent.name:
+        return f"{path.parent.name}/{path.name}"
+    return path.name
+
+
 def series_for_path(path: Path) -> list[dict[str, object]]:
     files = sorted(
         afl_queue_files([path]), key=lambda item: (item.stat().st_mtime, item.name)
@@ -29,6 +38,7 @@ def series_for_path(path: Path) -> list[dict[str, object]]:
     seen_seq2: set[str] = set()
     rows: list[dict[str, object]] = []
     start_time = files[0].stat().st_mtime if files else 0.0
+    label = label_for_path(path)
 
     for index, file_path in enumerate(files, start=1):
         ops = decode_bytes(file_path.read_bytes())
@@ -38,7 +48,7 @@ def series_for_path(path: Path) -> list[dict[str, object]]:
         )
         rows.append(
             {
-                "label": path.name,
+                "label": label,
                 "file_index": index,
                 "seconds": file_path.stat().st_mtime - start_time,
                 "queued_files": index,

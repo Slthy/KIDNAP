@@ -141,34 +141,45 @@ Analyze a single testcase:
 ./scripts/analyze_queue.py /tmp/poc_one.seed
 ```
 
-Analyze an AFL output directory and replay each queue entry through the current
-binary as a smoke check:
+Analyze an AFL++ default single-instance output directory and replay each queue
+entry through the current binary as a smoke check. AFL++ stores those queue
+files under `out-dir/default/queue/`, so pass the instance directory or the
+queue directory directly:
 
 ```sh
-./scripts/analyze_queue.py --target ./poc_one ./out-sysfeedback
+./scripts/analyze_queue.py --target ./poc_one ./out-sysfeedback/default
+```
+
+Direct queue paths are accepted too:
+
+```sh
+./scripts/analyze_queue.py --target ./poc_one ./out-sysfeedback/default/queue
 ```
 
 Write machine-readable outputs:
 
 ```sh
-./scripts/analyze_queue.py --format json --details --csv queue_summary.csv ./out-sysfeedback
+./scripts/analyze_queue.py --format json --details --csv queue_summary.csv ./out-sysfeedback/default
 ```
 
 ## Plotting feedback growth
 
 `plot_feedback.py` derives cumulative syscall and `SEQ2` growth from AFL queue
-files. It can compare multiple output directories.
+files. It can compare multiple output directories. For AFL++ default
+single-instance runs, pass the instance directories (`out-baseline/default` and
+`out-sysfeedback/default`) because AFL++ stores queue files under
+`out-dir/default/queue/`, not directly under `out-dir/queue/`.
 
 Create a PNG plot (requires `matplotlib`):
 
 ```sh
-./scripts/plot_feedback.py ./out-baseline ./out-sysfeedback -o feedback_growth.png
+./scripts/plot_feedback.py ./out-baseline/default ./out-sysfeedback/default -o feedback_growth.png
 ```
 
 Export the same time-series without requiring plotting dependencies:
 
 ```sh
-./scripts/plot_feedback.py --no-plot --csv feedback_growth.csv ./out-baseline ./out-sysfeedback
+./scripts/plot_feedback.py --no-plot --csv feedback_growth.csv ./out-baseline/default ./out-sysfeedback/default
 ```
 
 ## Expected workflow
