@@ -16,12 +16,12 @@ if ! find "$IN_DIR" -maxdepth 1 -type f -print -quit | grep -q .; then
 fi
 
 if AFL_CC_BIN="$(resolve_afl_cc)"; then
-    make -C "$ROOT_DIR" clean
-    make -C "$ROOT_DIR" CC="$AFL_CC_BIN"
+    run_make -C "$ROOT_DIR" clean
+    run_make -C "$ROOT_DIR" CC="$AFL_CC_BIN"
 else
     echo "warning: AFL compiler wrapper not found; building with default compiler" >&2
-    make -C "$ROOT_DIR" clean
-    make -C "$ROOT_DIR"
+    run_make -C "$ROOT_DIR" clean
+    run_make -C "$ROOT_DIR"
 fi
 
 run_afl_fuzz "$AFL_FUZZ_BIN" -i "$IN_DIR" -o "$OUT_DIR" -t 1000 -- "$TARGET" @@
