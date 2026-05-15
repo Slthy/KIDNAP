@@ -1,5 +1,0 @@
-AUTH=1
-CACHE=1
-DB=mysql
-ROLE=user
-TLS=1
