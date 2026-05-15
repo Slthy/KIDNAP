@@ -1,0 +1,27 @@
+{
+  "features": [
+    "AUTH",
+    "CACHE",
+    "TLS",
+    "DB_MYSQL",
+    "DB_SQLITE",
+    "ADMIN",
+    "BACKUP",
+    "EXPORT",
+    "METRICS"
+  ],
+  "combos": [
+    "AUTH+TLS",
+    "AUTH+ADMIN",
+    "CACHE+DB_MYSQL",
+    "EXPORT+COMPRESS_GZIP",
+    "EXPORT+FORMAT_JSON",
+    "METRICS+CACHE"
+  ],
+  "deps": [
+    "TLS->AUTH",
+    "ADMIN->AUTH",
+    "BACKUP->DB",
+    "EXPORT->COMPRESS_GZIP"
+  ]
+}
