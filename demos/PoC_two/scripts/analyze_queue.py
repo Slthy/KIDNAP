@@ -1,9 +1,38 @@
 #!/usr/bin/env python3
 
-import os, sys, subprocess, tempfile
+import argparse
+import json
+import os
+import subprocess
+import tempfile
 from pathlib import Path
 
 TARGET = "./configlet_sim"
+DEFAULT_GROUND_TRUTH = Path(__file__).resolve().parents[1] / "ground_truth.json"
+
+
+def load_ground_truth(path):
+    if path is None or not path.exists():
+        return None
+
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    return {
+        "features": set(data.get("features", [])),
+        "combos": set(data.get("combos", [])),
+        "dependencies": set(data.get("dependencies", data.get("deps", []))),
+    }
+
+
+def count_line(label, discovered, ground_truth):
+    display_label = f"{label}:"
+    if ground_truth is None:
+        return f"  {display_label:<14} {len(discovered)} / ?"
+
+    known = ground_truth[label]
+    return f"  {display_label:<14} {len(discovered & known)} / {len(known)}"
+
 
 def run_input(path: Path):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -42,11 +71,18 @@ def run_input(path: Path):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print(f"usage: {sys.argv[0]} <afl_queue_dir>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Analyze PoC_two AFL queue semantic coverage.")
+    parser.add_argument("queue_dir", type=Path, help="AFL queue directory to replay")
+    parser.add_argument(
+        "--ground-truth",
+        type=Path,
+        default=DEFAULT_GROUND_TRUTH,
+        help="ground-truth JSON for discovered/total comparison (default: %(default)s)",
+    )
+    args = parser.parse_args()
 
-    queue_dir = Path(sys.argv[1])
+    queue_dir = args.queue_dir
+    ground_truth = load_ground_truth(args.ground_truth)
 
     all_features = set()
     all_combos = set()
@@ -69,6 +105,23 @@ def main():
     print(f"  unique features:       {len(all_features)}")
     print(f"  unique combinations:   {len(all_combos)}")
     print(f"  unique dependencies:   {len(all_deps)}")
+    print()
+    print("Ground-truth comparison:")
+    print(count_line("features", all_features, ground_truth))
+    print(count_line("combos", all_combos, ground_truth))
+    print(count_line("dependencies", all_deps, ground_truth))
+    discovered_total = len(all_features) + len(all_combos) + len(all_deps)
+    if ground_truth is None:
+        print(f"  {'total:':<14} {discovered_total} / ?")
+    else:
+        covered_total = (
+            len(all_features & ground_truth["features"])
+            + len(all_combos & ground_truth["combos"])
+            + len(all_deps & ground_truth["dependencies"])
+        )
+        ground_truth_total = sum(len(values) for values in ground_truth.values())
+        percent = (covered_total / ground_truth_total * 100) if ground_truth_total else 0
+        print(f"  {'total:':<14} {covered_total} / {ground_truth_total} ({percent:.1f}%)")
     print()
     print("Features:")
     for x in sorted(all_features):
