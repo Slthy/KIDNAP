@@ -88,11 +88,22 @@ static uint32_t feature_hash3(const char *tag, int first, int second, int third)
 static uint8_t interesting_value(uint32_t feature_hash) {
     return (uint8_t)(1u << (feature_hash & 7u));
 }
+
+static uint32_t interesting_id(uint32_t feature_hash) {
+    /*
+     * Give AFL++ a stable, feature-derived location id. Passing a constant id
+     * makes all syscall feedback compete for one bitmap slot, which hides most
+     * distinctions from the fuzzer. Reserve id 0 and keep ids inside the normal
+     * map range so the synthetic signal behaves like ordinary AFL coverage.
+     */
+    return (feature_hash % (AFL_MAP_SIZE - 1U)) + 1U;
+}
 #endif
 
 static void record_feature(uint32_t feature_hash) {
 #ifdef __AFL_COMPILER
-    __afl_coverage_interesting(interesting_value(feature_hash), 0);
+    __afl_coverage_interesting(interesting_value(feature_hash),
+                               interesting_id(feature_hash));
     return;
 #else
     uint32_t idx = feature_hash % AFL_MAP_SIZE;
