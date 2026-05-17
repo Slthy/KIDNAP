@@ -7,7 +7,8 @@ for experimenting with syscall-oriented feedback.
 
 - [`demos/PoC_one`](demos/PoC_one/README.md): a bounded, non-destructive Linux
   syscall exerciser with optional `SYSCALL_FEEDBACK` instrumentation and helper
-  scripts for fuzzing, queue analysis, and feedback-growth plotting.
+  scripts for fuzzing, one-command baseline-vs-feedback comparisons, queue
+  analysis, and feedback-growth plotting.
 
 ## Quick start
 

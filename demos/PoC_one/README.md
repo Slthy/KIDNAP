@@ -61,6 +61,13 @@ AFL's coverage map in addition to normal compiler-inserted edge coverage:
 - `SEQ3(older_syscall_nr, previous_syscall_nr, syscall_nr)` for a harder
   syscall-order signal that is less likely to saturate during short campaigns.
 
+In AFL++ compiler-wrapper builds, each synthetic feature is emitted through
+AFL++'s public `__afl_coverage_interesting` hook with a stable feature-derived
+bitmap id. This keeps syscall feedback visible to AFL as distinct coverage-like
+locations instead of collapsing all synthetic events into one slot. Non-AFL
+smoke builds keep a private fallback map so the instrumentation can still be
+compiled and exercised.
+
 ## Fuzzing with AFL++
 
 Install AFL++ and ensure `afl-fuzz` is on `PATH`. The helper scripts also
@@ -94,6 +101,19 @@ Run the syscall-feedback target:
 If `seed_dir` is omitted, the scripts create `./in/seed`. If `out_dir` is
 omitted, baseline results go to `./out-baseline` and syscall-feedback results go
 to `./out-sysfeedback`.
+
+For a quick fixed-duration comparison between the baseline and feedback-aware
+variants, run:
+
+```sh
+./scripts/run_feedback_comparison.sh -d 60
+```
+
+The comparison helper builds separate baseline and syscall-feedback-aware target
+copies, runs one AFL++ campaign for each with the same seeds and `-V` duration,
+and writes JSON queue summaries plus a feedback-growth CSV under
+`./comparison-runs/reports/`. Use `-d SEC` to change the per-campaign duration,
+`-i DIR` to choose seeds, and `-o DIR` to choose the output directory.
 
 For larger machines, start multiple independent campaigns in `tmux` after one
 serial build of stable baseline and syscall-feedback target copies:
@@ -195,7 +215,8 @@ Export the same time-series without requiring plotting dependencies:
 ## Expected workflow
 
 1. Build and smoke-test with `make`.
-2. Start a baseline fuzzing run with `scripts/run_baseline.sh`.
-3. Start a syscall-feedback fuzzing run with `scripts/run_sysfeedback.sh`.
-4. Compare the resulting queue corpora with `scripts/analyze_queue.py`.
-5. Generate a CSV or PNG comparison with `scripts/plot_feedback.py`.
+2. Run a fixed-duration baseline-vs-feedback comparison with
+   `scripts/run_feedback_comparison.sh`, or start separate campaigns with
+   `scripts/run_baseline.sh` and `scripts/run_sysfeedback.sh`.
+3. Compare the resulting queue corpora with `scripts/analyze_queue.py`.
+4. Generate a CSV or PNG comparison with `scripts/plot_feedback.py`.
