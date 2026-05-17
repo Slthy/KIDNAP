@@ -1,7 +1,7 @@
 # KIDNAP
 
-This repository currently contains `PoC_one`, an AFL/AFL++ demonstration target
-for experimenting with syscall-oriented feedback.
+This repository contains AFL/AFL++ demonstration targets for experimenting with
+feedback-aware fuzzing.
 
 ## Available demos
 
@@ -9,6 +9,10 @@ for experimenting with syscall-oriented feedback.
   syscall exerciser with optional `SYSCALL_FEEDBACK` instrumentation and helper
   scripts for fuzzing, one-command baseline-vs-feedback comparisons, queue
   analysis, and feedback-growth plotting.
+- [`demos/PoC_two`](demos/PoC_two/README.md): a config parser simulator with a
+  baseline build, a `CONFIGLET_FEEDBACK` build that feeds semantic
+  feature/combo/dependency events back to AFL++, and comparison/analysis
+  helpers.
 
 ## Quick start
 
@@ -20,5 +24,5 @@ printf '\x00\x00\x00\x00' > /tmp/poc_one.seed
 ./scripts/analyze_queue.py /tmp/poc_one.seed
 ```
 
-See the PoC README for AFL++ fuzzing commands, experiment reset helpers, and
-plotting examples.
+See each PoC README for AFL++ fuzzing commands, experiment reset helpers, and
+analysis examples.

@@ -10,6 +10,7 @@ echo "[*] Resetting PoC 2 state..."
 rm -rf out-baseline
 rm -rf out-feature-feedback
 rm -rf out-configlet-feedback
+rm -rf comparison-runs
 rm -rf out-round1
 rm -rf out-round2
 
@@ -30,6 +31,7 @@ rm -f footprint.csv
 rm -f footprint_growth.csv
 rm -f footprint_growth.png
 rm -f analysis.txt
+rm -f feedback-growth.csv
 
 # Remove crashes/hangs summaries if you create them later
 rm -f crashes.txt
