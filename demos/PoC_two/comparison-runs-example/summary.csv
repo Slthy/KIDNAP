@@ -1,0 +1,4 @@
+label,files,features,combos,dependencies,total,ground_truth_total,percent
+baseline,269,9,7,7,23,52,44.2
+configlet-feedback,270,11,11,11,33,52,63.5
+delta,1,2,4,4,10,0,19.3

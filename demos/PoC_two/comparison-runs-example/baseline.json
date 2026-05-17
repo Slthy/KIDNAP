@@ -1,0 +1,51 @@
+{
+  "combos": [
+    "AUTH+ADMIN",
+    "AUTH+TLS",
+    "CACHE+DB_MYSQL",
+    "EXPORT+COMPRESS_GZIP",
+    "EXPORT+FORMAT_JSON",
+    "METRICS+CACHE",
+    "TLS+ADMIN"
+  ],
+  "covered": {
+    "combos": 7,
+    "dependencies": 7,
+    "features": 9
+  },
+  "covered_total": 23,
+  "dependencies": [
+    "ADMIN->AUTH",
+    "ADMIN->TLS",
+    "BACKUP->DB",
+    "BACKUP->MODE_WRITE",
+    "EXPORT->COMPRESS_GZIP",
+    "EXPORT->FORMAT_JSON",
+    "TLS->AUTH"
+  ],
+  "discovered_total": 23,
+  "features": [
+    "ADMIN",
+    "AUTH",
+    "BACKUP",
+    "CACHE",
+    "DB_MYSQL",
+    "DB_SQLITE",
+    "EXPORT",
+    "METRICS",
+    "TLS"
+  ],
+  "files": 269,
+  "ground_truth_total": 52,
+  "percent": 44.230769230769226,
+  "queue_dir": "/home/sibin/projects/KIDNAP/demos/PoC_two/comparison-runs/baseline/default/queue",
+  "target": "/home/sibin/projects/KIDNAP/demos/PoC_two/comparison-runs/bin/configlet_baseline",
+  "totals": {
+    "combos": 18,
+    "dependencies": 18,
+    "features": 16
+  },
+  "unique_combinations": 7,
+  "unique_dependencies": 7,
+  "unique_features": 9
+}
