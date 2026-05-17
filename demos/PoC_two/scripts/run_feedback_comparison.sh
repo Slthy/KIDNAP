@@ -119,20 +119,20 @@ run_campaign configlet-feedback "$FEEDBACK_BIN" "$FEEDBACK_OUT" "$RUNS_DIR/logs/
 
 BASELINE_REPORT="$RUNS_DIR/reports/baseline.json"
 FEEDBACK_REPORT="$RUNS_DIR/reports/configlet-feedback.json"
+SUMMARY_CSV="$RUNS_DIR/reports/summary.csv"
+GROWTH_CSV="$RUNS_DIR/reports/configlet_feedback_growth.csv"
+GROWTH_PNG="$RUNS_DIR/reports/configlet_feedback_growth.png"
 
 "$ROOT_DIR/scripts/analyze_queue.py" --format json --target "$BASELINE_BIN" "$BASELINE_OUT" > "$BASELINE_REPORT"
 "$ROOT_DIR/scripts/analyze_queue.py" --format json --target "$FEEDBACK_BIN" "$FEEDBACK_OUT" > "$FEEDBACK_REPORT"
 
-python3 - "$BASELINE_REPORT" "$FEEDBACK_REPORT" "$RUNS_DIR/reports/summary.csv" <<'PY'
+python3 - "$BASELINE_REPORT" "$FEEDBACK_REPORT" "$SUMMARY_CSV" <<'PY'
 import csv
 import json
 import sys
 
-rows = []
-for label, path in (("baseline", sys.argv[1]), ("configlet-feedback", sys.argv[2])):
-    with open(path, "r", encoding="utf-8") as handle:
-        data = json.load(handle)
-    rows.append({
+def row_for(label, data):
+    return {
         "label": label,
         "files": data["files"],
         "features": data["covered"]["features"],
@@ -141,7 +141,26 @@ for label, path in (("baseline", sys.argv[1]), ("configlet-feedback", sys.argv[2
         "total": data["covered_total"],
         "ground_truth_total": data["ground_truth_total"],
         "percent": f"{data['percent']:.1f}" if data["percent"] is not None else "",
-    })
+    }
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    baseline = json.load(handle)
+with open(sys.argv[2], "r", encoding="utf-8") as handle:
+    feedback = json.load(handle)
+
+base_row = row_for("baseline", baseline)
+feedback_row = row_for("configlet-feedback", feedback)
+delta_row = {"label": "delta"}
+for key in base_row:
+    if key == "label":
+        continue
+    if key == "percent" and base_row[key] != "" and feedback_row[key] != "":
+        delta_row[key] = f"{float(feedback_row[key]) - float(base_row[key]):.1f}"
+    elif isinstance(base_row[key], int):
+        delta_row[key] = feedback_row[key] - base_row[key]
+    else:
+        delta_row[key] = ""
+rows = [base_row, feedback_row, delta_row]
 
 with open(sys.argv[3], "w", newline="", encoding="utf-8") as handle:
     writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
@@ -149,11 +168,20 @@ with open(sys.argv[3], "w", newline="", encoding="utf-8") as handle:
     writer.writerows(rows)
 PY
 
+"$ROOT_DIR/scripts/plot_feedback.py" --target "$FEEDBACK_BIN" --extend-to "$DURATION_SEC" --csv "$GROWTH_CSV" --no-plot "$BASELINE_OUT" "$FEEDBACK_OUT" >/dev/null
+if "$ROOT_DIR/scripts/plot_feedback.py" --target "$FEEDBACK_BIN" --extend-to "$DURATION_SEC" --csv "$GROWTH_CSV" --output "$GROWTH_PNG" "$BASELINE_OUT" "$FEEDBACK_OUT" >/dev/null; then
+    PLOT_STATUS="[+] Growth PNG:                  $GROWTH_PNG"
+else
+    PLOT_STATUS="[!] Growth PNG skipped; install matplotlib to enable plotting"
+fi
+
 cat <<MSG
 [+] Comparison complete.
 [+] Baseline AFL output:         $BASELINE_OUT
 [+] Feedback-driven AFL output:  $FEEDBACK_OUT
 [+] Baseline queue report:       $BASELINE_REPORT
 [+] Feedback queue report:       $FEEDBACK_REPORT
-[+] Summary CSV:                 $RUNS_DIR/reports/summary.csv
+[+] Summary CSV:                 $SUMMARY_CSV
+[+] Growth CSV:                  $GROWTH_CSV
+$PLOT_STATUS
 MSG

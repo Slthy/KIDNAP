@@ -111,9 +111,16 @@ variants, run:
 
 The comparison helper builds separate baseline and syscall-feedback-aware target
 copies, runs one AFL++ campaign for each with the same seeds and `-V` duration,
-and writes JSON queue summaries plus a feedback-growth CSV under
-`./comparison-runs/reports/`. Use `-d SEC` to change the per-campaign duration,
-`-i DIR` to choose seeds, and `-o DIR` to choose the output directory.
+and writes comparison artifacts under `./comparison-runs/reports/`:
+
+- `baseline.json` and `sysfeedback.json`: full replay/queue summaries.
+- `summary.csv`: side-by-side final metrics plus deltas/ratios for quick checks.
+- `feedback_growth.csv`: cumulative time-series data for spreadsheet analysis.
+- `feedback_growth.png`: the same time-series as a plot when `matplotlib` is
+  installed.
+
+Use `-d SEC` to change the per-campaign duration, `-i DIR` to choose seeds, and
+`-o DIR` to choose the output directory.
 
 For larger machines, start multiple independent campaigns in `tmux` after one
 serial build of stable baseline and syscall-feedback target copies:
@@ -203,13 +210,20 @@ single-instance runs, pass the instance directories (`out-baseline/default` and
 Create a PNG plot (requires `matplotlib`):
 
 ```sh
-./scripts/plot_feedback.py ./out-baseline/default ./out-sysfeedback/default -o feedback_growth.png
+./scripts/plot_feedback.py --extend-to 60 ./out-baseline/default ./out-sysfeedback/default -o feedback_growth.png
 ```
+
+If the plot line ends before the chosen AFL `-V` duration, that does not mean
+AFL stopped early. Queue timestamps mark when AFL discovered new files, so a
+fixed-duration run can legitimately plateau after the last discovery. Pass
+`--extend-to SEC` (the same value you used for `afl-fuzz -V` or
+`run_feedback_comparison.sh -d`) to draw that final plateau through the end of
+the campaign.
 
 Export the same time-series without requiring plotting dependencies:
 
 ```sh
-./scripts/plot_feedback.py --no-plot --csv feedback_growth.csv ./out-baseline/default ./out-sysfeedback/default
+./scripts/plot_feedback.py --extend-to 60 --no-plot --csv feedback_growth.csv ./out-baseline/default ./out-sysfeedback/default
 ```
 
 ## Expected workflow

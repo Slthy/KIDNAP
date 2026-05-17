@@ -11,6 +11,7 @@ If matplotlib is unavailable, use --csv to export the same time-series data.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import importlib.util
 import re
@@ -181,11 +182,37 @@ def plot_metric(
     axis, rows: Sequence[dict[str, object]], metric: str, label: str
 ) -> None:
     x_values, y_values = metric_change_points(rows, metric)
+    if not x_values:
+        return
     (line,) = axis.step(x_values, y_values, where="post", linewidth=1.8, label=label)
     axis.scatter(x_values[-1:], y_values[-1:], s=18, color=line.get_color(), zorder=3)
 
 
+def extend_rows_to_duration(
+    rows_by_input: dict[Path, list[dict[str, object]]], duration: float | None
+) -> dict[Path, list[dict[str, object]]]:
+    """Return rows with a final plateau point at ``duration`` seconds.
+
+    AFL queue timestamps describe when new testcases were discovered. In a
+    fixed-duration comparison, the last discovery often happens before AFL's
+    ``-V`` limit, so extending the line makes clear that the campaign kept
+    running and simply found no additional semantic states.
+    """
+    if duration is None:
+        return rows_by_input
+    extended: dict[Path, list[dict[str, object]]] = {}
+    for path, rows in rows_by_input.items():
+        copied_rows = [copy.deepcopy(row) for row in rows]
+        if copied_rows and float(copied_rows[-1]["seconds"]) < duration:
+            final_row = copy.deepcopy(copied_rows[-1])
+            final_row["seconds"] = duration
+            copied_rows.append(final_row)
+        extended[path] = copied_rows
+    return extended
+
+
 def write_csv(path: Path, rows: Sequence[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=CSV_FIELDS)
         writer.writeheader()
@@ -207,6 +234,9 @@ def render_plot(path: Path, rows_by_input: dict[Path, list[dict[str, object]]]) 
     if importlib.util.find_spec("matplotlib") is None:  # pragma: no cover
         raise RuntimeError("matplotlib is required for plotting; rerun with --csv")
 
+    import matplotlib
+
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(4, 1, figsize=(10, 12), sharex=True)
@@ -229,7 +259,9 @@ def render_plot(path: Path, rows_by_input: dict[Path, list[dict[str, object]]]) 
         axis.margins(x=0.02, y=0.08)
         axis.legend(loc="best", framealpha=0.9)
     fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path)
+    plt.close(fig)
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -267,6 +299,16 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         action="store_true",
         help="Only write CSV/summary; do not require matplotlib or create a PNG.",
     )
+    parser.add_argument(
+        "--extend-to",
+        type=float,
+        help=(
+            "extend every time series with a flat final point at SEC seconds; "
+            "use this with fixed-duration AFL -V runs so the PNG shows the "
+            "campaign continued after the final queued discovery"
+        ),
+        metavar="SEC",
+    )
     return parser.parse_args(argv)
 
 
@@ -278,6 +320,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         rows_by_input = {
             path: series_for_path(path, args.target, ground_truth) for path in args.paths
         }
+        rows_by_input = extend_rows_to_duration(rows_by_input, args.extend_to)
     except FileNotFoundError as exc:
         print(f"error: path does not exist: {exc}", file=sys.stderr)
         return 2
