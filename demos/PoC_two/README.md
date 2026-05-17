@@ -75,6 +75,35 @@ Use JSON output when you want to post-process results:
 ./scripts/analyze_queue.py --format json out-baseline > baseline.json
 ```
 
+## Plotting semantic growth
+
+Use `plot_feedback.py` to replay one or more AFL output directories and plot
+cumulative semantic discovery over queue time. The plot contains features,
+combinations, dependencies, and total covered ground-truth states:
+
+```bash
+./scripts/plot_feedback.py \
+  --target ./configlet_sim \
+  --output configlet_feedback_growth.png \
+  out-baseline out-configlet-feedback
+```
+
+If `matplotlib` is not installed, or you want to analyze the data in another
+tool, export the same time-series data as CSV without creating a PNG:
+
+```bash
+./scripts/plot_feedback.py \
+  --target ./configlet_sim \
+  --csv configlet_feedback_growth.csv \
+  --no-plot \
+  out-baseline out-configlet-feedback
+```
+
+The script accepts normal AFL output directories, instance directories, queue
+directories, or simple testcase directories. AFL queue filenames with
+`time:<milliseconds>` are plotted using AFL's fuzzing-relative timestamp; other
+files fall back to modification-time deltas.
+
 ## Baseline vs feedback-driven comparison
 
 For a repeatable side-by-side run, use the comparison helper. It builds separate
@@ -96,6 +125,17 @@ Outputs are written under `comparison-runs/`:
   semantic coverage report for the feedback-driven queue.
 - `comparison-runs/reports/summary.csv` compares covered features,
   combinations, dependencies, and total ground-truth percentage.
+
+To plot those comparison outputs after the run, pass both campaign directories
+to the plotting helper:
+
+```bash
+./scripts/plot_feedback.py \
+  --target comparison-runs/bin/configlet_feedback \
+  --output comparison-runs/reports/configlet_feedback_growth.png \
+  --csv comparison-runs/reports/configlet_feedback_growth.csv \
+  comparison-runs/baseline comparison-runs/configlet-feedback
+```
 
 ## Fuzzing guidance
 

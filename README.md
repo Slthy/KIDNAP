@@ -11,8 +11,8 @@ feedback-aware fuzzing.
   analysis, and feedback-growth plotting.
 - [`demos/PoC_two`](demos/PoC_two/README.md): a config parser simulator with a
   baseline build, a `CONFIGLET_FEEDBACK` build that feeds semantic
-  feature/combo/dependency events back to AFL++, and comparison/analysis
-  helpers.
+  feature/combo/dependency events back to AFL++, and comparison, analysis, and
+  semantic-growth plotting helpers.
 
 ## Quick start
 
