@@ -12,6 +12,9 @@ typedef struct {
     int export_enabled;
     int backup;
     int metrics;
+    int token_1337;
+    int size_large;
+    int mode_write;
 
     char db[32];
     char role[32];
@@ -49,73 +52,130 @@ static void parse_config(const char *input, Config *cfg) {
 
     if (contains_line(input, "FORMAT=json")) strcpy(cfg->format, "json");
     if (contains_line(input, "FORMAT=xml")) strcpy(cfg->format, "xml");
+
+    if (contains_line(input, "TOKEN=1337")) cfg->token_1337 = 1;
+    if (contains_line(input, "SIZE=4096")) cfg->size_large = 1;
+    if (contains_line(input, "MODE=write")) cfg->mode_write = 1;
 }
 
-static void feature_auth(void) {
+static void feature_auth(const Config *cfg) {
     volatile int x = 1;
     x += 3;                         // do some work
     record_feature("AUTH");         // register feat
+
+    if (strcmp(cfg->role, "admin") == 0) {
+        x += 11;
+    } else {
+        x += 23;
+    }
+
+    if (cfg->tls) {
+        volatile int y = 30;
+        y ^= 0x55;
+    }
 }
 
-static void feature_cache(void) {
+static void feature_cache(const Config *cfg) {
     volatile int x = 2;
     x *= 5;
     record_feature("CACHE");
+
+    if (strcmp(cfg->db, "mysql") == 0) {
+        x += 101;
+    } else if (strcmp(cfg->db, "sqlite") == 0) {
+        x += 202;
+    }
 }
 
-static void feature_tls(void) {
+static void feature_tls(const Config *cfg) {
     volatile int x = 3;
     x ^= 0x55;
     record_feature("TLS");
+
+    if (cfg->auth && strcmp(cfg->role, "admin") == 0) {
+        x ^= 0xaa;
+    }
 }
 
-static void feature_db_mysql(void) {
+static void feature_db_mysql(const Config *cfg) {
     volatile int x = 4;
     x += 100;
     record_feature("DB_MYSQL");
+
+    if (cfg->backup) {
+        x += 4096;
+    }
 }
 
-static void feature_db_sqlite(void) {
+static void feature_db_sqlite(const Config *cfg) {
     volatile int x = 5;
     x += 200;
     record_feature("DB_SQLITE");
+
+    if (cfg->backup) {
+        x += 2048;
+    }
 }
 
-static void feature_admin(void) {
+static void feature_admin(const Config *cfg) {
     volatile int x = 6;
     x *= 7;
     record_feature("ADMIN");
+
+    if (cfg->tls) {
+        x ^= 0x777;
+    }
 }
 
-static void feature_backup(void) {
+static void feature_backup(const Config *cfg) {
     volatile int x = 7;
     x *= 11;
     record_feature("BACKUP");
+
+    if (cfg->size_large) {
+        x += 4096;
+    }
 }
 
-static void feature_export(void) {
+static void feature_export(const Config *cfg) {
     volatile int x = 8;
     x *= 13;
     record_feature("EXPORT");
+
+    if (strcmp(cfg->compress, "gzip") == 0) {
+        x += 31;
+    } else if (strcmp(cfg->compress, "lz4") == 0) {
+        x += 47;
+    }
+
+    if (strcmp(cfg->format, "json") == 0) {
+        x += 59;
+    } else if (strcmp(cfg->format, "xml") == 0) {
+        x += 61;
+    }
 }
 
-static void feature_metrics(void) {
+static void feature_metrics(const Config *cfg) {
     volatile int x = 9;
     x *= 17;
     record_feature("METRICS");
+
+    if (cfg->cache) {
+        x += 19;
+    }
 }
 
 static void run_application(Config *cfg) {
     if (cfg->auth) {
-        feature_auth();
+        feature_auth(cfg);
     }
 
     if (cfg->cache) {
-        feature_cache();
+        feature_cache(cfg);
     }
 
     if (cfg->tls) {
-        feature_tls();
+        feature_tls(cfg);
 
         if (cfg->auth) {
             record_dep("TLS", "AUTH");
@@ -124,16 +184,16 @@ static void run_application(Config *cfg) {
     }
 
     if (strcmp(cfg->db, "mysql") == 0) {
-        feature_db_mysql();
+        feature_db_mysql(cfg);
     }
 
     if (strcmp(cfg->db, "sqlite") == 0) {
-        feature_db_sqlite();
+        feature_db_sqlite(cfg);
     }
 
     if (strcmp(cfg->role, "admin") == 0) {
         if (cfg->auth) {
-            feature_admin();
+            feature_admin(cfg);
             record_dep("ADMIN", "AUTH");
             record_combo("AUTH", "ADMIN");
         }
@@ -145,13 +205,13 @@ static void run_application(Config *cfg) {
 
     if (cfg->backup) {
         if (strcmp(cfg->db, "mysql") == 0 || strcmp(cfg->db, "sqlite") == 0) {
-            feature_backup();
+            feature_backup(cfg);
             record_dep("BACKUP", "DB");
         }
     }
 
     if (cfg->export_enabled) {
-        feature_export();
+        feature_export(cfg);
 
         if (strcmp(cfg->compress, "gzip") == 0) {
             record_dep("EXPORT", "COMPRESS_GZIP");
@@ -164,11 +224,27 @@ static void run_application(Config *cfg) {
     }
 
     if (cfg->metrics) {
-        feature_metrics();
+        feature_metrics(cfg);
 
         if (cfg->cache) {
             record_combo("METRICS", "CACHE");
         }
+    }
+
+    if (cfg->auth && strcmp(cfg->role, "admin") == 0 && cfg->token_1337) {
+        record_feature("PRIVILEGED_ADMIN");
+        record_combo("AUTH", "PRIVILEGED_ADMIN");
+        record_dep("PRIVILEGED_ADMIN", "AUTH");
+
+        if (cfg->mode_write) {
+            record_combo("PRIVILEGED_ADMIN", "MODE_WRITE");
+        }
+    }
+
+    if (cfg->backup && cfg->size_large && cfg->mode_write) {
+        record_feature("LARGE_WRITE_BACKUP");
+        record_combo("BACKUP", "LARGE_WRITE_BACKUP");
+        record_dep("LARGE_WRITE_BACKUP", "BACKUP");
     }
 }
 
