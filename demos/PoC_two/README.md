@@ -84,6 +84,7 @@ combinations, dependencies, and total covered ground-truth states:
 ```bash
 ./scripts/plot_feedback.py \
   --target ./configlet_sim \
+  --extend-to 60 \
   --output configlet_feedback_growth.png \
   out-baseline out-configlet-feedback
 ```
@@ -94,6 +95,7 @@ tool, export the same time-series data as CSV without creating a PNG:
 ```bash
 ./scripts/plot_feedback.py \
   --target ./configlet_sim \
+  --extend-to 60 \
   --csv configlet_feedback_growth.csv \
   --no-plot \
   out-baseline out-configlet-feedback
@@ -102,14 +104,17 @@ tool, export the same time-series data as CSV without creating a PNG:
 The script accepts normal AFL output directories, instance directories, queue
 directories, or simple testcase directories. AFL queue filenames with
 `time:<milliseconds>` are plotted using AFL's fuzzing-relative timestamp; other
-files fall back to modification-time deltas.
+files fall back to modification-time deltas. If a fixed-duration comparison
+plot appears to stop before the configured AFL `-V` duration, it usually means
+no more queued files were discovered after that point; pass `--extend-to SEC`
+with the same duration to draw the flat plateau through the campaign end.
 
 ## Baseline vs feedback-driven comparison
 
 For a repeatable side-by-side run, use the comparison helper. It builds separate
 baseline and feedback-driven binaries, runs fixed-duration AFL++ campaigns with
-the same seeds and dictionary, and writes JSON reports plus a compact CSV
-summary:
+the same seeds and dictionary, and writes JSON reports, a compact CSV summary,
+and semantic-growth CSV/PNG artifacts:
 
 ```bash
 ./scripts/run_feedback_comparison.sh -d 60
@@ -124,7 +129,11 @@ Outputs are written under `comparison-runs/`:
 - `comparison-runs/reports/configlet-feedback.json` contains the replayed
   semantic coverage report for the feedback-driven queue.
 - `comparison-runs/reports/summary.csv` compares covered features,
-  combinations, dependencies, and total ground-truth percentage.
+  combinations, dependencies, total ground-truth percentage, and a `delta` row.
+- `comparison-runs/reports/configlet_feedback_growth.csv` contains the
+  cumulative discovery time series extended to the selected `-d` duration.
+- `comparison-runs/reports/configlet_feedback_growth.png` plots that time
+  series when `matplotlib` is installed.
 
 To plot those comparison outputs after the run, pass both campaign directories
 to the plotting helper:
@@ -132,6 +141,7 @@ to the plotting helper:
 ```bash
 ./scripts/plot_feedback.py \
   --target comparison-runs/bin/configlet_feedback \
+  --extend-to 60 \
   --output comparison-runs/reports/configlet_feedback_growth.png \
   --csv comparison-runs/reports/configlet_feedback_growth.csv \
   comparison-runs/baseline comparison-runs/configlet-feedback

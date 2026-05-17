@@ -14,6 +14,22 @@ feedback-aware fuzzing.
   feature/combo/dependency events back to AFL++, and comparison, analysis, and
   semantic-growth plotting helpers.
 
+## Comparing fixed-duration runs
+
+Each demo README documents a one-command baseline-vs-feedback helper. In short,
+run the helper from the demo directory with a fixed duration, for example:
+
+```sh
+./scripts/run_feedback_comparison.sh -d 60
+```
+
+The helpers write side-by-side JSON reports, a compact `summary.csv`, and growth
+CSV/PNG artifacts under `comparison-runs/reports/`. Growth plots use AFL queue
+discovery timestamps, so a line ending before the chosen `-d` duration means the
+last queued discovery happened early; it does not mean AFL stopped early. The
+comparison helpers now extend plots to the selected duration to show the final
+plateau clearly.
+
 ## Quick start
 
 ```sh

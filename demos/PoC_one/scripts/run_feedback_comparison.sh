@@ -12,7 +12,8 @@ usage: run_feedback_comparison.sh [options]
 Run a fixed-duration AFL++ comparison between the plain baseline target and the
 syscall-feedback-aware target. The script builds separate target binaries,
 runs one baseline campaign and one feedback-aware campaign with the same seed
-corpus, then writes replay/queue summaries and a feedback-growth CSV.
+corpus, then writes replay/queue summaries, a side-by-side summary CSV, and
+feedback-growth CSV/PNG artifacts.
 
 Options:
   -i DIR   seed input directory (default: ./in)
@@ -121,10 +122,52 @@ run_campaign syscall-feedback "$FEEDBACK_BIN" "$FEEDBACK_OUT" "$RUNS_DIR/logs/sy
 BASELINE_REPORT="$RUNS_DIR/reports/baseline.json"
 FEEDBACK_REPORT="$RUNS_DIR/reports/sysfeedback.json"
 GROWTH_CSV="$RUNS_DIR/reports/feedback_growth.csv"
+GROWTH_PNG="$RUNS_DIR/reports/feedback_growth.png"
+SUMMARY_CSV="$RUNS_DIR/reports/summary.csv"
 
 "$ROOT_DIR/scripts/analyze_queue.py" --format json --target "$BASELINE_BIN" "$BASELINE_OUT" > "$BASELINE_REPORT"
 "$ROOT_DIR/scripts/analyze_queue.py" --format json --target "$FEEDBACK_BIN" "$FEEDBACK_OUT" > "$FEEDBACK_REPORT"
-"$ROOT_DIR/scripts/plot_feedback.py" --no-plot --csv "$GROWTH_CSV" "$BASELINE_OUT" "$FEEDBACK_OUT" >/dev/null
+"$ROOT_DIR/scripts/plot_feedback.py" --no-plot --extend-to "$DURATION_SEC" --csv "$GROWTH_CSV" "$BASELINE_OUT" "$FEEDBACK_OUT" >/dev/null
+if "$ROOT_DIR/scripts/plot_feedback.py" --extend-to "$DURATION_SEC" --csv "$GROWTH_CSV" --output "$GROWTH_PNG" "$BASELINE_OUT" "$FEEDBACK_OUT" >/dev/null; then
+    PLOT_STATUS="[+] Growth PNG:                  $GROWTH_PNG"
+else
+    PLOT_STATUS="[!] Growth PNG skipped; install matplotlib to enable plotting"
+fi
+
+python3 - "$BASELINE_REPORT" "$FEEDBACK_REPORT" "$SUMMARY_CSV" <<'PY'
+import csv
+import json
+import sys
+
+metrics = [
+    "files",
+    "total_operations",
+    "unique_syscalls",
+    "unique_seq2",
+    "unique_seq3",
+    "unique_syscall_errno",
+    "unique_prev_syscall_errno",
+]
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    baseline = json.load(handle)
+with open(sys.argv[2], "r", encoding="utf-8") as handle:
+    feedback = json.load(handle)
+rows = []
+for metric in metrics:
+    base_value = baseline.get(metric, 0)
+    feedback_value = feedback.get(metric, 0)
+    rows.append({
+        "metric": metric,
+        "baseline": base_value,
+        "sysfeedback": feedback_value,
+        "delta": feedback_value - base_value,
+        "ratio": "" if base_value == 0 else f"{feedback_value / base_value:.3f}",
+    })
+with open(sys.argv[3], "w", newline="", encoding="utf-8") as handle:
+    writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+    writer.writeheader()
+    writer.writerows(rows)
+PY
 
 cat <<MSG
 [+] Comparison complete.
@@ -132,5 +175,7 @@ cat <<MSG
 [+] Feedback-aware AFL output:   $FEEDBACK_OUT
 [+] Baseline queue report:       $BASELINE_REPORT
 [+] Feedback-aware queue report: $FEEDBACK_REPORT
+[+] Summary CSV:                 $SUMMARY_CSV
 [+] Growth CSV:                  $GROWTH_CSV
+$PLOT_STATUS
 MSG
