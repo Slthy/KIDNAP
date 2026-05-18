@@ -68,3 +68,11 @@ AFLplusplus/.cache/
 .venv/
 **/.venv/
 __pycache__
+# PoC three generated artifacts
+demos/PoC_three/results/
+demos/PoC_three/out-afl*/
+demos/PoC_three/out-unitfile-afl*/
+demos/PoC_three/systemctl_generator
+demos/PoC_three/systemctl_harness
+demos/PoC_three/unit_file_harness
+demos/PoC_three/scripts/__pycache__/

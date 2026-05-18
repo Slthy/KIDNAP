@@ -1,0 +1,6 @@
+[Unit]
+Description=Fuzz Sleep Service
+
+[Service]
+Type=simple
+ExecStart=/bin/sleep 30

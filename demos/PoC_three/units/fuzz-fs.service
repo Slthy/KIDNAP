@@ -1,0 +1,6 @@
+[Unit]
+Description=Fuzz FS Service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'mkdir -p /tmp/systemctl-fuzz && echo x >> /tmp/systemctl-fuzz/log'

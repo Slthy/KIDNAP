@@ -1,0 +1,7 @@
+[Unit]
+Description=Fuzz Fail Service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/false
+RemainAfterExit=no

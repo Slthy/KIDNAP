@@ -1,0 +1,9 @@
+[Unit]
+Description=Fuzz Timer
+
+[Timer]
+OnBootSec=5s
+Unit=fuzz-ok.service
+
+[Install]
+WantedBy=timers.target

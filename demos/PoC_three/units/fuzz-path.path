@@ -1,0 +1,9 @@
+[Unit]
+Description=Fuzz Path
+
+[Path]
+PathChanged=/tmp/systemctl-fuzz/watch
+Unit=fuzz-ok.service
+
+[Install]
+WantedBy=multi-user.target
