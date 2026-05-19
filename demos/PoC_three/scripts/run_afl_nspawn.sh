@@ -16,14 +16,15 @@ map_path() {
 IN_DIR="$(map_path "${1:-./seeds}")"
 OUT_ARG="${2:-./out-afl}"
 OUT_DIR="$(map_path "$OUT_ARG")"
-if [[ -n "$DURATION" ]]; then
-  "$ROOT_DIR/scripts/nspawn_exec.sh" env DURATION="$DURATION" ./scripts/run_afl.sh "$IN_DIR" "$OUT_DIR"
-else
-  "$ROOT_DIR/scripts/nspawn_exec.sh" ./scripts/run_afl.sh "$IN_DIR" "$OUT_DIR"
-fi
 if [[ "$OUT_ARG" = /* ]]; then
   host_out="$OUT_ARG"
 else
   host_out="$ROOT_DIR/$OUT_ARG"
+fi
+mkdir -p "$(dirname "$host_out")"
+if [[ -n "$DURATION" ]]; then
+  "$ROOT_DIR/scripts/nspawn_exec.sh" env DURATION="$DURATION" ./scripts/run_afl.sh "$IN_DIR" "$OUT_DIR"
+else
+  "$ROOT_DIR/scripts/nspawn_exec.sh" ./scripts/run_afl.sh "$IN_DIR" "$OUT_DIR"
 fi
 sudo chown -R "$(id -u):$(id -g)" "$host_out"

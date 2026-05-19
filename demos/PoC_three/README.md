@@ -174,9 +174,12 @@ To turn that report into a ftrace-selected corpus from the outer VM:
 ./scripts/run_ftrace_cycle.sh out-afl results/ftrace-cycle
 ```
 
-That writes `queue-growth.csv`, `queue-analysis.json`, and `seeds-next/` with the
-highest-scoring inputs. To demonstrate a full reseeding experiment across fixed
-AFL windows:
+That writes `queue-growth.csv`, `queue-analysis.json`, and `seeds-next/`. Corpus
+selection now defaults to diversity-preserving buckets over semantic operation
+families before filling remaining slots by novelty score; pass
+`--strategy top-score` to `select_corpus.py` only when you intentionally want the
+old greedy behavior. To demonstrate a full reseeding experiment across fixed AFL
+windows:
 
 ```bash
 ROUNDS=3 DURATION=300 TOP_K=20 ./scripts/run_reseed_loop.sh
@@ -213,11 +216,19 @@ reporting artifacts are:
 ```text
 reports/summary.csv
 reports/summary.json
-reports/function-growth-comparison.png   # when matplotlib is installed
+reports/event-growth-comparison.png      # when matplotlib is installed
+```
+
+For ad hoc comparisons of existing queue-growth CSVs, use:
+
+```bash
+./scripts/compare_queue_runs.py \
+  first-16=results/ftrace-cycle-16/queue-growth.csv \
+  reseeded-16=results/ftrace-cycle-reseeded-16/queue-growth.csv
 ```
 
 The summary normalizes the unlike raw outputs into one table containing unique
-functions, unique function pairs, subsystem counts, replayed queue size, and
+events, unique event pairs, subsystem counts, replayed queue size, and
 aggregate novelty score.
 
 ## Generated unit-file fuzzing
@@ -269,9 +280,10 @@ output. In the current nspawn-on-shared-kernel setup, the default collection mod
 is focused syscall tracepoints because live function tracing was too expensive
 for batch replay on the test host.
 
-The report fields still use the historical names `functions` and
-`function_pairs`; when using `TRACE_PROFILE=syscalls`, read these as traced event
-names and adjacent event pairs rather than literal kernel function coverage.
+Reports now include `trace_mode`, `events`, `event_pairs`, `unique_events`, and
+`unique_event_pairs`. The historical `functions` and `function_pairs` aliases are
+kept for older scripts, but syscall-tracepoint runs should be interpreted as
+traced event coverage rather than literal kernel function coverage.
 
 The analyzer currently reports:
 
@@ -286,12 +298,12 @@ The analyzer currently reports:
 `analyze_queue.py` uses the initial weighted sketch from the research plan:
 
 ```text
-10 * new kernel functions
-+ 25 * new cgroup functions
-+ 20 * new vfs functions
-+ 20 * new socket/netlink functions
-+ 15 * new proc/sysfs functions
-+  5 * new function pairs
+10 * new traced events
++ 25 * new cgroup-prefixed function events
++ 20 * new vfs-prefixed function events
++ 20 * new socket/netlink-prefixed function events
++ 15 * new proc/sysfs-prefixed function events
++  5 * new event pairs
 ```
 
 This is a low-cost approximation, not a final debloating oracle. The implemented
@@ -327,14 +339,16 @@ maximize immediate novelty score.
 
 ## TODO
 
-- [ ] Rename report fields or add a `trace_mode` column so syscall-tracepoint
+- [x] Add `trace_mode` and event-oriented report fields so syscall-tracepoint
       runs do not overclaim `unique_functions`.
-- [ ] Change `select_corpus.py` from pure top-K scoring to diversity-preserving
+- [x] Change `select_corpus.py` from pure top-K scoring to diversity-preserving
       selection: bucket by semantic family signature, take the best seed from
       each bucket, then fill remaining slots by score.
-- [ ] Add a compact comparison helper for the successful manual commands used in
+- [x] Add a compact comparison helper for the successful manual commands used in
       the run: first/reseeded, 8-input/16-input, final unique events, pairs, and
       aggregate score.
+- [x] Keep replay command stdout/stderr out of `queue-analysis.json` so generated
+      JSON remains parseable when `systemctl` prints status or failure messages.
 - [ ] Add a second replay profile for slower administrative commands
       (`daemon-reload`, `enable`, `disable`, `mask`, `unmask`) so they can be
       evaluated separately from the `fast-safe` profile.

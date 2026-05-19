@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def read_series(path: Path) -> list[int]:
-    return [int(row["total_seen_functions"]) for row in csv.DictReader(path.open())]
+    return [int(row.get("total_seen_events") or row["total_seen_functions"]) for row in csv.DictReader(path.open())]
 
 
 def main() -> None:
@@ -32,7 +32,7 @@ def main() -> None:
     for label, values in series:
         plt.plot(range(1, len(values) + 1), values, label=label)
     plt.xlabel("queue inputs replayed")
-    plt.ylabel("cumulative unique functions")
+    plt.ylabel("cumulative unique events")
     plt.legend()
     plt.tight_layout()
     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -7,6 +7,7 @@ mkdir -p "$RESULTS_DIR"
 
 RESET_CMD="${RESET_CMD:-$ROOT_DIR/scripts/reset_state_nspawn.sh}"
 HARNESS_RUNNER="${HARNESS_RUNNER:-$ROOT_DIR/scripts/nspawn_harness.sh}"
+TRACE_PROFILE="${TRACE_PROFILE:-syscalls}"
 
 "$RESET_CMD"
 
@@ -14,5 +15,6 @@ for seed in baseline; do
   sudo "$ROOT_DIR/scripts/collect_ftrace.sh" "$RESULTS_DIR/$seed.trace" -- \
     "$HARNESS_RUNNER" "$ROOT_DIR/seeds/$seed"
   "$ROOT_DIR/scripts/analyze_trace.py" "$RESULTS_DIR/$seed.trace" \
+    --trace-mode "$TRACE_PROFILE" \
     > "$RESULTS_DIR/$seed.json"
 done

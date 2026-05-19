@@ -40,13 +40,21 @@ ROUNDS="$ROUNDS" DURATION="$DURATION" TOP_K="$TOP_K" \
 
 command_reseed_csv="$COMMAND_RESEED_DIR/round-$ROUNDS/queue-growth.csv"
 unit_reseed_csv="$UNIT_RESEED_DIR/round-$ROUNDS/queue-growth.csv"
+command_round_args=()
+unit_round_args=()
+for round in $(seq 1 "$ROUNDS"); do
+  command_round_args+=(--command-reseed-round "$COMMAND_RESEED_DIR/round-$round/queue-growth.csv")
+  unit_round_args+=(--unit-reseed-round "$UNIT_RESEED_DIR/round-$round/queue-growth.csv")
+done
 
 "$ROOT_DIR/scripts/summarize_experiments.py" \
   --baseline-json "$BASELINE_DIR/baseline.json" \
   --command-afl "$COMMAND_AFL_DIR/ftrace/queue-growth.csv" \
   --command-reseed "$command_reseed_csv" \
+  "${command_round_args[@]}" \
   --unit-afl "$UNIT_AFL_DIR/ftrace/queue-growth.csv" \
   --unit-reseed "$unit_reseed_csv" \
+  "${unit_round_args[@]}" \
   --csv "$REPORT_DIR/summary.csv" \
   --json "$REPORT_DIR/summary.json" \
   > "$REPORT_DIR/summary.pretty.json"
@@ -54,10 +62,11 @@ unit_reseed_csv="$UNIT_RESEED_DIR/round-$ROUNDS/queue-growth.csv"
 if "$ROOT_DIR/scripts/plot_comparison.py" \
   --command-afl "$COMMAND_AFL_DIR/ftrace/queue-growth.csv" \
   --command-reseed "$command_reseed_csv" \
+  "${command_round_args[@]}" \
   --unit-afl "$UNIT_AFL_DIR/ftrace/queue-growth.csv" \
   --unit-reseed "$unit_reseed_csv" \
-  --output "$REPORT_DIR/function-growth-comparison.png"; then
-  plot_message="Growth plot: $REPORT_DIR/function-growth-comparison.png"
+  --output "$REPORT_DIR/event-growth-comparison.png"; then
+  plot_message="Growth plot: $REPORT_DIR/event-growth-comparison.png"
 else
   plot_message="Growth plot skipped (install matplotlib to enable it)."
 fi

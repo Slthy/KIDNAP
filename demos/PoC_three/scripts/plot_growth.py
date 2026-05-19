@@ -21,9 +21,9 @@ def main() -> None:
         raise SystemExit("matplotlib is required for plotting") from exc
 
     x = list(range(1, len(rows) + 1))
-    plt.plot(x, [int(r["total_seen_functions"]) for r in rows], label="unique functions")
+    plt.plot(x, [int(r.get("total_seen_events") or r["total_seen_functions"]) for r in rows], label="unique events")
     plt.xlabel("queue inputs replayed")
-    plt.ylabel("cumulative unique functions")
+    plt.ylabel("cumulative unique events")
     plt.legend()
     plt.tight_layout()
     plt.savefig(args.output)
